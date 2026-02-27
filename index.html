@@ -41,9 +41,13 @@
                 },
                 saveReflection:   (r)   => set(ref(db, "reflections/" + r.id), r),
                 deleteReflection: (id)  => remove(ref(db, "reflections/" + id)),
-                listenBg:         (cb)  => onValue(ref(db, "bgUrl"), snap => cb(snap.val() || "")),
+                listenBg:         (cb)  => onValue(ref(db, "bgUrl"),       snap => cb(snap.val() || "")),
                 saveBg:           (url) => set(ref(db, "bgUrl"), url),
-                listenVisitors:   (cb)  => onValue(ref(db, "visitors"), snap => cb(snap.val() || 0)),
+                listenSocialBg:   (cb)  => onValue(ref(db, "socialBgUrl"), snap => cb(snap.val() || "")),
+                saveSocialBg:     (url) => set(ref(db, "socialBgUrl"), url),
+                listenTextColor:  (cb)  => onValue(ref(db, "textColor"),   snap => cb(snap.val() || "#5a3a0a")),
+                saveTextColor:    (col) => set(ref(db, "textColor"), col),
+                listenVisitors:   (cb)  => onValue(ref(db, "visitors"),    snap => cb(snap.val() || 0)),
                 addVisit: () => {
                     const r = ref(db, "visitors");
                     onValue(r, snap => { set(r, (snap.val() || 0) + 1); }, { onlyOnce: true });
@@ -730,7 +734,7 @@
         };
 
         // Reflection Card Component
-        const ReflectionCard = ({ reflection, t, onEdit, onDelete, onImageUpload, isAdmin }) => {
+        const ReflectionCard = ({ reflection, t, onEdit, onDelete, onImageUpload, isAdmin, globalSocialBg, globalTextColor }) => {
             const [expanded, setExpanded] = useState(false);
             const paras = (reflection.reflection || "").split("\n\n").filter(Boolean);
             const preview = paras.slice(0, 2);
@@ -761,136 +765,76 @@
 
             const generateSocialImage = () => {
                 const canvas = document.createElement("canvas");
-                canvas.width = 1080;
-                canvas.height = 1350;
+                canvas.width = 1080; canvas.height = 1350;
                 const ctx = canvas.getContext("2d");
+                const bgSrc   = globalSocialBg || "";
+                const textCol = globalTextColor || "#5a3a0a";
 
-                const img = new Image();
-                img.onload = () => {
-                    // Draw background
-                    ctx.drawImage(img, 0, 0, 1080, 1350);
-
-                    // White overlay for readability
-                    ctx.fillStyle = "rgba(255,255,255,0.82)";
+                const drawContent = () => {
+                    ctx.fillStyle = "rgba(255,255,255,0.55)";
                     ctx.fillRect(0, 0, 1080, 1350);
-
-                    // Gold border
-                    ctx.strokeStyle = "#C9A84C";
-                    ctx.lineWidth = 8;
+                    ctx.strokeStyle = "#C9A84C"; ctx.lineWidth = 8;
                     ctx.strokeRect(30, 30, 1020, 1290);
-
-                    // Inner subtle border
-                    ctx.strokeStyle = "rgba(201,168,76,0.4)";
-                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "rgba(201,168,76,0.4)"; ctx.lineWidth = 2;
                     ctx.strokeRect(50, 50, 980, 1250);
 
-                    // Title
-                    const title = reflection.title || "DA CUORE A CUORE CON CRISTO";
-                    ctx.fillStyle = "#8B1A1A";
-                    ctx.font = "bold 42px Georgia, serif";
-                    ctx.textAlign = "center";
-                    // Word wrap title
-                    const wrapText = (text, x, y, maxW, lineH, size, bold, color) => {
-                        ctx.font = `${bold ? "bold " : ""}${size}px Georgia, serif`;
-                        ctx.fillStyle = color || "#8B1A1A";
-                        ctx.textAlign = "center";
-                        const words = text.split(" ");
-                        let line = "";
-                        let currentY = y;
-                        for (let n = 0; n < words.length; n++) {
-                            const test = line + words[n] + " ";
-                            if (ctx.measureText(test).width > maxW && n > 0) {
-                                ctx.fillText(line.trim(), x, currentY);
-                                line = words[n] + " ";
-                                currentY += lineH;
-                            } else {
-                                line = test;
-                            }
-                        }
-                        ctx.fillText(line.trim(), x, currentY);
-                        return currentY + lineH;
-                    };
+                    const MAXW=880, CX=540, VLH=38, RLH=34, BLH=40, PARA_GAP=30;
+                    const verseFont="italic 28px Georgia,serif", refFont="bold 24px Georgia,serif", bodyFont="29px Georgia,serif";
 
-                    // ── helper: measure wrapped text height ──────────────────
                     const measureBlock = (text, font, maxW, lineH) => {
-                        ctx.font = font;
-                        const words = text.split(" ");
-                        let line = "", lines = 1;
-                        for (let n = 0; n < words.length; n++) {
-                            const test = line + words[n] + " ";
-                            if (ctx.measureText(test).width > maxW && n > 0) { line = words[n] + " "; lines++; }
-                            else line = test;
-                        }
-                        return lines * lineH;
+                        ctx.font=font; let lines=0;
+                        text.split("\n").forEach(row => {
+                            if (!row.trim()) { lines++; return; }
+                            let l="", c=1;
+                            row.split(" ").forEach(w => { const t2=l+w+" "; if(ctx.measureText(t2).width>maxW&&l){c++;l=w+" ";}else l=t2; });
+                            lines+=c;
+                        });
+                        return lines*lineH;
+                    };
+                    const drawBlock = (text, font, color, cx, sy, maxW, lineH) => {
+                        ctx.font=font; ctx.fillStyle=color; ctx.textAlign="center"; let y=sy;
+                        text.split("\n").forEach(row => {
+                            if (!row.trim()) { y+=lineH; return; }
+                            let l="";
+                            row.split(" ").forEach(w => { const t2=l+w+" "; if(ctx.measureText(t2).width>maxW&&l){ctx.fillText(l.trim(),cx,y);l=w+" ";y+=lineH;}else l=t2; });
+                            if(l.trim()){ctx.fillText(l.trim(),cx,y);y+=lineH;}
+                        });
+                        return y;
                     };
 
-                    const drawWrapped = (text, font, color, cx, startY, maxW, lineH) => {
-                        ctx.font = font; ctx.fillStyle = color; ctx.textAlign = "center";
-                        const words = text.split(" ");
-                        let line = "", curY = startY;
-                        for (let n = 0; n < words.length; n++) {
-                            const test = line + words[n] + " ";
-                            if (ctx.measureText(test).width > maxW && n > 0) {
-                                ctx.fillText(line.trim(), cx, curY); line = words[n] + " "; curY += lineH;
-                            } else line = test;
-                        }
-                        ctx.fillText(line.trim(), cx, curY);
-                        return curY + lineH;
-                    };
+                    let totalH=0;
+                    if(reflection.verse){ totalH+=measureBlock(reflection.verse,verseFont,MAXW,VLH); if(reflection.verseRef) totalH+=RLH+10; totalH+=20; }
+                    totalH+=24;
+                    const paras=(reflection.reflection||"").split("\n\n").filter(Boolean);
+                    paras.forEach((p,i)=>{ totalH+=measureBlock(p,bodyFont,MAXW,BLH); if(i<paras.length-1) totalH+=PARA_GAP; });
+                    totalH+=50;
 
-                    const MAXW = 880, CX = 540;
-                    const verseFont   = "italic 28px Georgia, serif";
-                    const refFont     = "bold 24px Georgia, serif";
-                    const bodyFont    = "29px Georgia, serif";
-                    const VLH = 38, RLH = 34, BLH = 40;
-
-                    // ── measure total content height ─────────────────────────
-                    let totalH = 0;
-                    if (reflection.verse)    totalH += measureBlock(reflection.verse, verseFont, MAXW, VLH) + (reflection.verseRef ? RLH + 10 : 0) + 20;
-                    totalH += 24; // divider + spacing
-                    const paras = (reflection.reflection || "").split("\n\n").filter(Boolean);
-                    paras.forEach(p => { totalH += measureBlock(p, bodyFont, MAXW, BLH) + 16; });
-                    totalH += 50; // date line
-
-                    // ── vertical start so content is centered ────────────────
-                    const USABLE = 1350 - 80; // top/bottom margins 40px each
-                    let y = 40 + Math.max(20, (USABLE - totalH) / 2);
-
-                    // ── draw verse ───────────────────────────────────────────
-                    if (reflection.verse) {
-                        y = drawWrapped(reflection.verse, verseFont, "#5a3a0a", CX, y, MAXW, VLH);
-                        if (reflection.verseRef) {
-                            ctx.font = refFont; ctx.fillStyle = "#C9A84C"; ctx.textAlign = "center";
-                            ctx.fillText("— " + reflection.verseRef, CX, y);
-                            y += RLH + 10;
-                        }
-                        y += 10;
+                    let y=40+Math.max(20,(1350-80-totalH)/2);
+                    if(reflection.verse){
+                        y=drawBlock(reflection.verse,verseFont,textCol,CX,y,MAXW,VLH);
+                        if(reflection.verseRef){ ctx.font=refFont; ctx.fillStyle="#C9A84C"; ctx.textAlign="center"; ctx.fillText("— "+reflection.verseRef,CX,y); y+=RLH+10; }
+                        y+=10;
                     }
+                    ctx.strokeStyle="rgba(201,168,76,0.6)"; ctx.lineWidth=1.5;
+                    ctx.beginPath(); ctx.moveTo(120,y); ctx.lineTo(960,y); ctx.stroke(); y+=24;
+                    paras.forEach((para,i)=>{ y=drawBlock(para,bodyFont,textCol,CX,y,MAXW,BLH); if(i<paras.length-1) y+=PARA_GAP; });
+                    y+=18; ctx.font="bold 26px Georgia,serif"; ctx.fillStyle=textCol; ctx.textAlign="center";
+                    ctx.fillText(fmt(reflection.date),CX,y);
 
-                    // ── thin gold divider ─────────────────────────────────────
-                    ctx.strokeStyle = "rgba(201,168,76,0.5)"; ctx.lineWidth = 1;
-                    ctx.beginPath(); ctx.moveTo(120, y); ctx.lineTo(960, y); ctx.stroke();
-                    y += 24;
-
-                    // ── reflection paragraphs ─────────────────────────────────
-                    paras.forEach(para => {
-                        y = drawWrapped(para, bodyFont, "#1a0a0a", CX, y, MAXW, BLH);
-                        y += 4;
-                    });
-
-                    // ── date ──────────────────────────────────────────────────
-                    y += 10;
-                    ctx.font = "bold 26px Georgia, serif";
-                    ctx.fillStyle = "#8B1A1A"; ctx.textAlign = "center";
-                    ctx.fillText(fmt(reflection.date), CX, y);
-
-                    // Download
-                    const link = document.createElement("a");
-                    link.download = `reflexion_${reflection.date}_${reflection.lang}.jpg`;
-                    link.href = canvas.toDataURL("image/jpeg", 0.92);
-                    link.click();
+                    const link=document.createElement("a");
+                    link.download=`reflexion_${reflection.date}_${reflection.lang}.jpg`;
+                    link.href=canvas.toDataURL("image/jpeg",0.92); link.click();
                 };
-                img.src = PANTOCRATOR_BG;
+
+                if(bgSrc){
+                    const img=new Image();
+                    if(!bgSrc.startsWith("data:")) img.crossOrigin="anonymous";
+                    img.onload=()=>{ const sc=Math.max(1080/img.width,1350/img.height); ctx.drawImage(img,(1080-img.width*sc)/2,(1350-img.height*sc)/2,img.width*sc,img.height*sc); drawContent(); };
+                    img.onerror=()=>{ ctx.fillStyle="#f5f0e8"; ctx.fillRect(0,0,1080,1350); drawContent(); };
+                    img.src=bgSrc;
+                } else {
+                    ctx.fillStyle="#f5f0e8"; ctx.fillRect(0,0,1080,1350); drawContent();
+                }
             };
 
             return (
@@ -1474,6 +1418,10 @@
             const [lang, setLang] = useState(urlLang || "es");
             const [selectedDate, setSelectedDate] = useState(urlDate || today());
             const [visitors, setVisitors] = useState(null);
+            const [socialBgUrl, setSocialBgUrl]         = useState(() => localStorage.getItem('socialBgUrl') || "");
+            const [globalTextColor, setGlobalTextColor] = useState(() => localStorage.getItem('textColor') || "#5a3a0a");
+            const [showSocialBg, setShowSocialBg]       = useState(false);
+            const [showColorPicker, setShowColorPicker] = useState(false);
             const [reflections, setReflections] = useState(() => {
                 const saved = localStorage.getItem('reflections');
                 return saved ? JSON.parse(saved) : [];
@@ -1510,6 +1458,8 @@
                         hideLoader();
                     });
                     window._fb.listenBg(url => { if (url) setBgUrl(url); });
+                    window._fb.listenSocialBg(url  => { if (url) { setSocialBgUrl(url);      try { localStorage.setItem('socialBgUrl', url); } catch(e){} } });
+                    window._fb.listenTextColor(col => { if (col) { setGlobalTextColor(col); try { localStorage.setItem('textColor', col);   } catch(e){} } });
                     window._fb.listenVisitors(n => setVisitors(n));
                     window._fb.addVisit();
                 } else {
@@ -1522,9 +1472,9 @@
             }, []);
 
             // Guardar fondo en localStorage (respaldo local siempre)
-            useEffect(() => {
-                localStorage.setItem('bgUrl', bgUrl);
-            }, [bgUrl]);
+            useEffect(() => { localStorage.setItem('bgUrl', bgUrl); }, [bgUrl]);
+            useEffect(() => { try { localStorage.setItem('socialBgUrl', socialBgUrl); } catch(e){} }, [socialBgUrl]);
+            useEffect(() => { try { localStorage.setItem('textColor', globalTextColor); } catch(e){} }, [globalTextColor]);
 
             const showToast = (m) => {
                 setToast(m);
@@ -1587,7 +1537,7 @@
             };
 
             const [selY, selM, selD] = selectedDate.split("-");
-            const anyModal = showPwd || showForm || showBg;
+            const anyModal = showPwd || showForm || showBg || showSocialBg || showColorPicker;
 
             return (
                 <>
@@ -1621,17 +1571,102 @@
                                 />
                             )}
                             {showBg && (
-                                <BgPanel 
-                                    t={t} 
-                                    current={bgUrl} 
-                                    onSelect={u => { 
-                                        setBgUrl(u);
-                                        if (window._fb) window._fb.saveBg(u);
-                                        setShowBg(false); 
-                                        showToast("¡Fondo cambiado!"); 
-                                    }} 
-                                    onClose={() => setShowBg(false)} 
-                                />
+                                <BgPanel t={t} current={bgUrl}
+                                    onSelect={u => { setBgUrl(u); if (window._fb) window._fb.saveBg(u); setShowBg(false); showToast("¡Fondo cambiado!"); }}
+                                    onClose={() => setShowBg(false)} />
+                            )}
+
+                            {/* ── Modal: Fondo global imágenes compartibles ── */}
+                            {showSocialBg && (
+                                <div style={{ width:"100%", maxWidth:480, borderRadius:14 }} className="glass">
+                                    <div style={{ background:"linear-gradient(135deg,rgba(201,168,76,0.18),rgba(201,168,76,0.07))", padding:"14px 20px", borderBottom:"1px solid rgba(201,168,76,0.18)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                                        <h3 className="cinzel" style={{ color:"var(--gold)", fontSize:"0.85rem", letterSpacing:"0.1em" }}>🖼 Fondo global — imágenes compartibles</h3>
+                                        <button className="btn-ghost" onClick={() => setShowSocialBg(false)} style={{ color:"var(--gold)" }}><Icon.X /></button>
+                                    </div>
+                                    <div style={{ padding:"18px 20px", display:"flex", flexDirection:"column", gap:14 }}>
+                                        <p className="crimson" style={{ color:"rgba(245,230,187,0.6)", fontSize:"0.92rem", fontStyle:"italic" }}>
+                                            Esta imagen será el fondo para <strong style={{color:"var(--gold-pale)"}}>todos los idiomas y todas las fechas</strong>.
+                                        </p>
+                                        <label className="btn-outline" htmlFor="globalSocialBgUpload"
+                                            style={{ padding:"10px 18px", borderRadius:8, display:"inline-flex", alignItems:"center", gap:8, cursor:"pointer", justifyContent:"center" }}>
+                                            📂 Subir imagen desde tu computador
+                                        </label>
+                                        <input id="globalSocialBgUpload" type="file" accept="image/*" style={{ display:"none" }}
+                                            onChange={e => {
+                                                const file = e.target.files[0]; if (!file) return;
+                                                const reader = new FileReader();
+                                                reader.onload = ev => {
+                                                    const img = new Image();
+                                                    img.onload = () => {
+                                                        const canvas = document.createElement("canvas");
+                                                        const MAX = 1200;
+                                                        let w = img.width, h = img.height;
+                                                        if (w > MAX || h > MAX) { if (w > h) { h = Math.round(h*MAX/w); w = MAX; } else { w = Math.round(w*MAX/h); h = MAX; } }
+                                                        canvas.width = w; canvas.height = h;
+                                                        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+                                                        const url = canvas.toDataURL("image/jpeg", 0.85);
+                                                        setSocialBgUrl(url);
+                                                        if (window._fb) window._fb.saveSocialBg(url);
+                                                        showToast("✝ Fondo global guardado");
+                                                        setShowSocialBg(false);
+                                                    };
+                                                    img.src = ev.target.result;
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }} />
+                                        {socialBgUrl ? (
+                                            <div>
+                                                <p className="cinzel" style={{ fontSize:"0.6rem", color:"#81c784", letterSpacing:"0.15em", marginBottom:6 }}>✓ IMAGEN ACTUAL</p>
+                                                <div style={{ position:"relative", display:"inline-block" }}>
+                                                    <img src={socialBgUrl} alt="Fondo global" style={{ maxWidth:"100%", maxHeight:160, borderRadius:8, border:"1px solid rgba(129,199,132,0.4)", display:"block", objectFit:"cover" }} />
+                                                    <button onClick={() => { setSocialBgUrl(""); if (window._fb) window._fb.saveSocialBg(""); showToast("Fondo eliminado"); setShowSocialBg(false); }}
+                                                        style={{ position:"absolute", top:6, right:6, background:"rgba(160,30,30,0.8)", border:"none", color:"#fff", borderRadius:"50%", width:24, height:24, cursor:"pointer", fontSize:"0.75rem" }}>✕</button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p style={{ color:"rgba(245,230,187,0.35)", fontFamily:"'Cinzel',serif", fontSize:"0.65rem", textAlign:"center" }}>Sin imagen — se usará fondo blanco</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── Modal: Color global del texto ── */}
+                            {showColorPicker && (
+                                <div style={{ width:"100%", maxWidth:420, borderRadius:14 }} className="glass">
+                                    <div style={{ background:"linear-gradient(135deg,rgba(201,168,76,0.18),rgba(201,168,76,0.07))", padding:"14px 20px", borderBottom:"1px solid rgba(201,168,76,0.18)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                                        <h3 className="cinzel" style={{ color:"var(--gold)", fontSize:"0.85rem", letterSpacing:"0.1em" }}>🎨 Color global del texto</h3>
+                                        <button className="btn-ghost" onClick={() => setShowColorPicker(false)} style={{ color:"var(--gold)" }}><Icon.X /></button>
+                                    </div>
+                                    <div style={{ padding:"18px 20px", display:"flex", flexDirection:"column", gap:16 }}>
+                                        <p className="crimson" style={{ color:"rgba(245,230,187,0.6)", fontSize:"0.92rem", fontStyle:"italic" }}>
+                                            Se aplica a <strong style={{color:"var(--gold-pale)"}}>todos los idiomas y todas las fechas</strong>.
+                                        </p>
+                                        <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
+                                            {[
+                                                { color:"#5a3a0a", label:"Marrón neutro" },
+                                                { color:"#1a1a1a", label:"Negro" },
+                                                { color:"#FFFFFF", label:"Blanco — Navidad/Pascua" },
+                                                { color:"#4B0082", label:"Violeta — Adviento/Cuaresma" },
+                                                { color:"#8B0000", label:"Rojo — Pentecostés/Mártires" },
+                                                { color:"#1B5E20", label:"Verde — Tiempo Ordinario" },
+                                                { color:"#C9A84C", label:"Dorado — Solemnidades" },
+                                                { color:"#FFD700", label:"Amarillo vivo" },
+                                            ].map(({ color, label }) => (
+                                                <button key={color} title={label}
+                                                    onClick={() => { setGlobalTextColor(color); if (window._fb) window._fb.saveTextColor(color); showToast("✝ Color guardado"); setShowColorPicker(false); }}
+                                                    style={{ width:46, height:46, borderRadius:10, background:color, border: globalTextColor===color ? "3px solid var(--gold-light)" : "2px solid rgba(255,255,255,0.2)", cursor:"pointer", boxShadow: globalTextColor===color ? "0 0 12px rgba(201,168,76,0.8)" : "none", transition:"all 0.2s" }} />
+                                            ))}
+                                        </div>
+                                        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                                            <span className="cinzel" style={{ fontSize:"0.65rem", color:"rgba(201,168,76,0.6)" }}>Personalizado:</span>
+                                            <input type="color" value={globalTextColor}
+                                                onChange={e => setGlobalTextColor(e.target.value)}
+                                                onBlur={e => { if (window._fb) window._fb.saveTextColor(e.target.value); showToast("✝ Color guardado"); setShowColorPicker(false); }}
+                                                style={{ width:40, height:34, borderRadius:6, border:"1px solid rgba(201,168,76,0.3)", cursor:"pointer", background:"transparent" }} />
+                                            <span style={{ fontFamily:"monospace", fontSize:"0.8rem", color:"rgba(201,168,76,0.7)", background:"rgba(0,0,0,0.2)", padding:"2px 8px", borderRadius:4 }}>{globalTextColor}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     )}
@@ -1679,6 +1714,19 @@
                                     background: window._fb ? "#4CAF50" : "#FFD700",
                                     boxShadow: `0 0 6px ${window._fb ? "#4CAF50" : "#FFD700"}`
                                 }} />
+                                {isAdmin && (<>
+                                    <button className="btn-outline" onClick={() => setShowSocialBg(true)}
+                                        style={{ padding:"6px 10px", borderRadius:7, display:"flex", alignItems:"center", gap:5, borderColor: socialBgUrl ? "rgba(129,199,132,0.5)" : undefined, color: socialBgUrl ? "#81c784" : undefined }}
+                                        title="Imagen de fondo global para imágenes compartibles">
+                                        🖼 <span className="hide-sm">Fondo IMG</span>
+                                    </button>
+                                    <button className="btn-outline" onClick={() => setShowColorPicker(true)}
+                                        style={{ padding:"6px 10px", borderRadius:7, display:"flex", alignItems:"center", gap:5 }}
+                                        title="Color global del texto en imágenes">
+                                        <span style={{ display:"inline-block", width:14, height:14, borderRadius:3, background: globalTextColor, border:"1px solid rgba(255,255,255,0.3)", flexShrink:0 }} />
+                                        <span className="hide-sm">Color texto</span>
+                                    </button>
+                                </>)}
                                 <button 
                                     className="btn-outline" 
                                     onClick={() => isAdmin ? setIsAdmin(false) : setShowPwd(true)}
@@ -1764,7 +1812,9 @@
                                             t={t} 
                                             onEdit={handleEdit} 
                                             onDelete={handleDelete} 
-                                            isAdmin={isAdmin} 
+                                            isAdmin={isAdmin}
+                                            globalSocialBg={socialBgUrl}
+                                            globalTextColor={globalTextColor}
                                         />
                                     ))
                                 )}
