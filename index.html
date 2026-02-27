@@ -738,21 +738,15 @@
 
             const copyToClipboard = () => {
                 const text = `${reflection.title}\n\n✝ ${reflection.verse}\n— ${reflection.verseRef}\n\n${reflection.reflection}\n\n🙏 ${reflection.prayer || ""}`;
-                navigator.clipboard.writeText(text).then(() => {
-                    alert("¡Texto copiado al portapapeles!");
-                });
+                navigator.clipboard.writeText(text).then(() => { alert("¡Texto copiado!"); });
             };
-
             const shareReflection = () => {
                 const base = window.location.href.split("?")[0];
                 const url  = `${base}?lang=${reflection.lang}&date=${reflection.date}`;
-                const text = `✝ ${reflection.title}\n\n${reflection.verse}\n— ${reflection.verseRef}`;
                 if (navigator.share) {
-                    navigator.share({ title: reflection.title, text, url }).catch(() => {});
+                    navigator.share({ title: reflection.title, text: `✝ ${reflection.title}\n${reflection.verse}`, url }).catch(()=>{});
                 } else {
-                    navigator.clipboard.writeText(url).then(() => {
-                        alert("🔗 Link copiado!\n\n" + url);
-                    });
+                    navigator.clipboard.writeText(url).then(() => { alert("🔗 Link copiado!\n\n" + url); });
                 }
             };
 
@@ -961,27 +955,8 @@
                             >
                                 🖼️ <span className="hide-sm">Img</span>
                             </button>
-
-                            {/* Botón Compartir */}
-                            <button
-                                onClick={shareReflection}
-                                title="Compartir esta reflexión"
-                                style={{
-                                    background: "rgba(100,160,255,0.12)",
-                                    border: "1px solid rgba(100,160,255,0.35)",
-                                    color: "#90caf9",
-                                    padding: "5px 10px",
-                                    borderRadius: 6,
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    fontSize: "0.68rem",
-                                    fontFamily: "'Cinzel',serif",
-                                    letterSpacing: "0.06em",
-                                    transition: "all 0.25s"
-                                }}
-                            >
+                            <button onClick={shareReflection} title="Compartir"
+                                style={{ background:"rgba(100,160,255,0.12)", border:"1px solid rgba(100,160,255,0.35)", color:"#90caf9", padding:"5px 10px", borderRadius:6, cursor:"pointer", display:"flex", alignItems:"center", gap:4, fontSize:"0.68rem", fontFamily:"'Cinzel',serif", letterSpacing:"0.06em", transition:"all 0.25s" }}>
                                 🔗 <span className="hide-sm">Compartir</span>
                             </button>
 
@@ -1496,10 +1471,9 @@
             const urlParams = new URLSearchParams(window.location.search);
             const urlLang = urlParams.get("lang");
             const urlDate = urlParams.get("date");
-
             const [lang, setLang] = useState(urlLang || "es");
             const [selectedDate, setSelectedDate] = useState(urlDate || today());
-            const [visitors, setVisitors] = useState(0);
+            const [visitors, setVisitors] = useState(null);
             const [reflections, setReflections] = useState(() => {
                 const saved = localStorage.getItem('reflections');
                 return saved ? JSON.parse(saved) : [];
@@ -1851,19 +1825,24 @@
                         {/* FOOTER */}
                         <footer style={{ 
                             borderTop: "1px solid rgba(201,168,76,0.12)", 
-                            padding: "18px clamp(14px,4vw,44px)", 
+                            padding: "20px clamp(14px,4vw,44px)", 
                             background: "rgba(6,11,28,0.5)", 
                             backdropFilter: "blur(8px)", 
-                            textAlign: "center" 
+                            textAlign: "center",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 10
                         }}>
                             <p className="crimson" style={{ fontSize: "0.85rem", color: "rgba(201,168,76,0.38)", fontStyle: "italic" }}>
                                 "De Corazón a Corazón con Cristo" · Luz del Verbo · "Yo soy el camino, la verdad y la vida" · Jn 14,6
                             </p>
-                            {visitors > 0 && (
-                                <p className="cinzel" style={{ fontSize: "0.6rem", color: "rgba(201,168,76,0.28)", letterSpacing: "0.18em", marginTop: 8, textTransform: "uppercase" }}>
-                                    ✦ {visitors.toLocaleString()} visitas ✦
-                                </p>
-                            )}
+                            <div style={{ display:"flex", alignItems:"center", gap:10, background:"rgba(201,168,76,0.07)", border:"1px solid rgba(201,168,76,0.18)", borderRadius:20, padding:"6px 18px" }}>
+                                <span style={{ fontSize:"0.8rem" }}>👁️</span>
+                                <span className="cinzel" style={{ fontSize:"0.7rem", color:"rgba(201,168,76,0.6)", letterSpacing:"0.14em" }}>
+                                    {visitors === null ? "..." : visitors.toLocaleString()} visitas
+                                </span>
+                            </div>
                         </footer>
                     </div>
                 </>
