@@ -516,7 +516,7 @@
         
         const SAMPLE = [
             {
-                id: "s1", lang: "es", date: today(),
+                id: "s1", lang: "es", date: today(), type: "reflexion",
                 title: "Luz del Verbo",
                 verse: "Y el Verbo se hizo carne y habitó entre nosotros, y vimos su gloria, gloria como del Unigénito del Padre, lleno de gracia y de verdad.",
                 verseRef: "Jn 1,14",
@@ -525,7 +525,7 @@
                 imageUrl: ""
             },
             {
-                id: "s2", lang: "es", date: yesterday(),
+                id: "s2", lang: "es", date: yesterday(), type: "reflexion",
                 title: "El camino hacia Belén",
                 verse: "Sucedió que en aquellos días salió un decreto de parte de Augusto César, que se hiciese un censo de toda la tierra.",
                 verseRef: "Lc 2,1",
@@ -838,7 +838,7 @@
             };
 
             return (
-                <article className="glass fu" style={{ borderRadius: 16, overflow: "hidden", marginBottom: 24 }}>
+                <article id={`card-${reflection.id}`} className="glass fu" style={{ borderRadius: 16, overflow: "hidden", marginBottom: 24 }}>
                     <div style={{
                         background: "linear-gradient(135deg,rgba(201,168,76,0.18),rgba(201,168,76,0.07))",
                         padding: "18px 24px 14px",
@@ -849,9 +849,20 @@
                         gap: 10,
                     }}>
                         <div>
-                            <p className="cinzel" style={{ fontSize: "0.62rem", color: "var(--gold)", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 6, opacity: 0.75 }}>
-                                ✝ {fmt(reflection.date)}
-                            </p>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                <p className="cinzel" style={{ fontSize: "0.62rem", color: "var(--gold)", letterSpacing: "0.2em", textTransform: "uppercase", opacity: 0.75 }}>
+                                    ✝ {fmt(reflection.date)}
+                                </p>
+                                {reflection.type && reflection.type !== "reflexion" && (() => {
+                                    const typeLabels = { novena: "🕯️ Novena", letanias: "📿 Letanías", oracion: "🙏 Oración", otro: "📖 Otro" };
+                                    const label = typeLabels[reflection.type];
+                                    return label ? (
+                                        <span className="cinzel" style={{ fontSize: "0.55rem", color: "var(--navy)", background: "var(--gold)", borderRadius: 10, padding: "2px 8px", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700 }}>
+                                            {label}
+                                        </span>
+                                    ) : null;
+                                })()}
+                            </div>
                             <h2 className="cinzel" style={{ fontSize: "clamp(1rem,2.8vw,1.35rem)", color: "var(--gold-light)", fontWeight: 700, lineHeight: 1.25 }}>
                                 {reflection.title}
                             </h2>
@@ -952,7 +963,7 @@
                                 ✝ {t.verse}
                             </p>
                             <div className="verse-quote">
-                                <p className="crimson" style={{ fontSize: "clamp(1.05rem,2.3vw,1.28rem)", fontStyle: "italic", color: "var(--gold-pale)", lineHeight: 1.65 }}>
+                                <p className="crimson" style={{ fontSize: "clamp(1.05rem,2.3vw,1.28rem)", fontStyle: "italic", color: "var(--gold-pale)", lineHeight: 1.65, whiteSpace: "pre-wrap" }}>
                                     {reflection.verse}
                                 </p>
                             </div>
@@ -974,7 +985,7 @@
                                 {t.reflection}
                             </p>
                             {(expanded ? paras : preview).map((p, i) => (
-                                <p key={i} className="crimson" style={{ fontSize: "clamp(1rem,2vw,1.13rem)", color: "rgba(245,230,187,0.9)", lineHeight: 1.82, marginBottom: 12, textAlign: "justify" }}>
+                                <p key={i} className="crimson" style={{ fontSize: "clamp(1rem,2vw,1.13rem)", color: "rgba(245,230,187,0.9)", lineHeight: 1.82, marginBottom: 12, textAlign: "justify", whiteSpace: "pre-wrap" }}>
                                     {p}
                                 </p>
                             ))}
@@ -1000,7 +1011,7 @@
                                 <p className="cinzel" style={{ fontSize: "0.6rem", color: "var(--gold)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 8, opacity: 0.7 }}>
                                     🙏 {t.prayer}
                                 </p>
-                                <p className="crimson" style={{ fontSize: "clamp(0.95rem,2vw,1.07rem)", fontStyle: "italic", color: "rgba(245,230,187,0.85)", lineHeight: 1.75 }}>
+                                <p className="crimson" style={{ fontSize: "clamp(0.95rem,2vw,1.07rem)", fontStyle: "italic", color: "rgba(245,230,187,0.85)", lineHeight: 1.75, whiteSpace: "pre-wrap" }}>
                                     {reflection.prayer}
                                 </p>
                             </div>
@@ -1020,6 +1031,7 @@
                 prayer: "", 
                 date: defaultDate || today(), 
                 lang: "es",
+                type: "reflexion",
                 imageUrl: ""
             });
             
@@ -1093,13 +1105,7 @@
                     </div>
                     
                     <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
-                        {/* Simplified inputs with placeholders only */}
-                        <input 
-                            className="admin-input" 
-                            placeholder="Título de la reflexión" 
-                            value={f.title || ""} 
-                            onChange={e => s("title", e.target.value)} 
-                        />
+                        {/* type + title row above */}
                         
                         <textarea 
                             className="admin-input" 
@@ -1198,6 +1204,27 @@
                                 )}
                             </div>
                             )}
+                        </div>
+                        
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                            <select 
+                                className="admin-input" 
+                                value={f.type || "reflexion"} 
+                                onChange={e => s("type", e.target.value)}
+                                style={{ appearance: "none" }}
+                            >
+                                <option value="reflexion">✝ Reflexión</option>
+                                <option value="novena">🕯️ Novena</option>
+                                <option value="letanias">📿 Letanías</option>
+                                <option value="oracion">🙏 Oración especial</option>
+                                <option value="otro">📖 Otro</option>
+                            </select>
+                            <input 
+                                className="admin-input" 
+                                placeholder="Título de la tarjeta" 
+                                value={f.title || ""} 
+                                onChange={e => s("title", e.target.value)} 
+                            />
                         </div>
                         
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1787,6 +1814,64 @@
                                         </button>
                                     )}
                                 </div>
+
+                                {/* ─── ÍNDICE DE CONTENIDOS (solo si hay más de 1 tarjeta) ─── */}
+                                {dayRefs.length > 1 && (
+                                    <div className="glass" style={{ 
+                                        borderRadius: 12, 
+                                        padding: "14px 20px", 
+                                        marginBottom: 20, 
+                                        border: "1px solid rgba(201,168,76,0.3)",
+                                        background: "linear-gradient(135deg,rgba(201,168,76,0.08),rgba(13,27,62,0.85))"
+                                    }}>
+                                        <p className="cinzel" style={{ 
+                                            fontSize: "0.6rem", 
+                                            color: "var(--gold)", 
+                                            letterSpacing: "0.2em", 
+                                            textTransform: "uppercase", 
+                                            marginBottom: 10, 
+                                            opacity: 0.8,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 6
+                                        }}>
+                                            📋 En esta página encuentras
+                                        </p>
+                                        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                                            {dayRefs.map((r, idx) => {
+                                                const typeLabels = { reflexion: "✝", novena: "🕯️", letanias: "📿", oracion: "🙏", otro: "📖" };
+                                                const icon = typeLabels[r.type] || "✝";
+                                                return (
+                                                    <li key={r.id}>
+                                                        <a 
+                                                            href={`#card-${r.id}`}
+                                                            onClick={e => { e.preventDefault(); document.getElementById(`card-${r.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+                                                            style={{ 
+                                                                display: "flex", 
+                                                                alignItems: "center", 
+                                                                gap: 8, 
+                                                                textDecoration: "none",
+                                                                color: "var(--gold-pale)",
+                                                                fontFamily: "'Crimson Pro',serif",
+                                                                fontSize: "clamp(0.9rem,1.8vw,1rem)",
+                                                                lineHeight: 1.4,
+                                                                padding: "3px 0",
+                                                                borderBottom: idx < dayRefs.length - 1 ? "1px solid rgba(201,168,76,0.1)" : "none",
+                                                                paddingBottom: idx < dayRefs.length - 1 ? 6 : 0,
+                                                                transition: "color 0.2s"
+                                                            }}
+                                                            onMouseOver={e => e.currentTarget.style.color = "var(--gold)"}
+                                                            onMouseOut={e => e.currentTarget.style.color = "var(--gold-pale)"}
+                                                        >
+                                                            <span style={{ fontSize: "0.85rem", flexShrink: 0 }}>{icon}</span>
+                                                            <span>{r.title || "(sin título)"}</span>
+                                                        </a>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
+                                    </div>
+                                )}
 
                                 {/* Reflection cards */}
                                 {/* ✅ Firebase connected notice for admin */}
