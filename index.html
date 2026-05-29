@@ -43,6 +43,17 @@
                 deleteReflection: (id)  => remove(ref(db, "reflections/" + id)),
                 listenBg:         (cb)  => onValue(ref(db, "bgUrl"), snap => cb(snap.val() || "")),
                 saveBg:           (url) => set(ref(db, "bgUrl"), url),
+                listenVisitors:   (cb)  => onValue(ref(db, "visitors"), snap => cb(snap.val() || 0)),
+                incrementVisitors: () => {
+                    // Only count once per session
+                    if (!sessionStorage.getItem('_visited')) {
+                        sessionStorage.setItem('_visited', '1');
+                        onValue(ref(db, "visitors"), snap => {
+                            const current = snap.val() || 0;
+                            set(ref(db, "visitors"), current + 1);
+                        }, { onlyOnce: true });
+                    }
+                },
             };
             console.log("✝ Firebase conectado");
         } catch(e) {
@@ -166,18 +177,18 @@
 
         /* LANG PILL - BOTONES GRANDES PARA FÁCIL SELECCIÓN */
         .lang-pill {
-            padding: 11px 22px;
-            border-radius: 28px;
+            padding: 10px 18px;
+            border-radius: 26px;
             cursor: pointer;
             font-family: 'Cinzel', serif;
-            font-size: 0.88rem;
-            letter-spacing: 0.1em;
+            font-size: 0.82rem;
+            letter-spacing: 0.08em;
             border: 2px solid rgba(201,168,76,0.35);
             transition: all 0.2s;
             background: rgba(13,27,62,0.65);
             color: rgba(201,168,76,0.75);
             text-transform: uppercase;
-            min-width: 80px;
+            min-width: 70px;
         }
         .lang-pill.on {
             background: rgba(201,168,76,0.22);
@@ -349,13 +360,13 @@
         /* RESPONSIVE MAIN GRID */
         .main-grid {
             flex: 1;
-            padding: clamp(20px,3vw,32px) clamp(14px,4vw,40px) 48px;
-            max-width: 900px;
+            padding: clamp(20px,3vw,32px) clamp(14px,3vw,32px) 48px;
+            max-width: 1280px;
             margin: 0 auto;
             width: 100%;
             display: grid;
-            grid-template-columns: 1fr min(260px,30%);
-            gap: 22px;
+            grid-template-columns: 1fr min(300px,28%);
+            gap: 28px;
             align-items: start;
         }
         @media (max-width: 700px) {
@@ -449,17 +460,6 @@
 
         const SITE_TITLE = "DE CORAZÓN A CORAZÓN CON CRISTO";
 
-        // ── COLORES LITÚRGICOS ────────────────────────────────────────────────────
-        const LITURGICAL_COLORS = [
-            { id: "default",  label: "Neutro",         color: "#1a0a0a",  bg: "#f5f0e8", icon: "◆" },
-            { id: "green",    label: "T. Ordinario",   color: "#1a4a1a",  bg: "#e8f5e8", icon: "🟢" },
-            { id: "purple",   label: "Adviento/Cuar.", color: "#3d0a5a",  bg: "#f0e8f5", icon: "🟣" },
-            { id: "white",    label: "Navidad/Pascua", color: "#4a3800",  bg: "#fffdf0", icon: "⚪" },
-            { id: "red",      label: "Pentecostés",    color: "#6b0000",  bg: "#fff0f0", icon: "🔴" },
-            { id: "rose",     label: "Gaudete/Laet.",  color: "#5a1530",  bg: "#fef0f5", icon: "🌸" },
-            { id: "gold",     label: "Fiestas mayores",color: "#3a2800",  bg: "#fdf8e8", icon: "✨" },
-        ];
-
         // ── HELPER YOUTUBE ───────────────────────────────────────────────────────
         const getYouTubeId = (url) => {
             if (!url) return null;
@@ -467,10 +467,7 @@
                 /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
                 /youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/
             ];
-            for (const p of patterns) {
-                const m = url.match(p);
-                if (m) return m[1];
-            }
+            for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
             return null;
         };
 
@@ -873,10 +870,8 @@
                     let y = 40 + Math.max(20, (USABLE - totalH) / 2);
 
                     // ── draw verse ───────────────────────────────────────────
-                    const bodyTextColor = reflection.textColor || "#1a0a0a";
-                    const verseTextColor = reflection.textColor || "#5a3a0a";
                     if (reflection.verse) {
-                        y = drawWrapped(reflection.verse, verseFont, verseTextColor, CX, y, MAXW, VLH);
+                        y = drawWrapped(reflection.verse, verseFont, "#5a3a0a", CX, y, MAXW, VLH);
                         if (reflection.verseRef) {
                             ctx.font = refFont; ctx.fillStyle = "#C9A84C"; ctx.textAlign = "center";
                             ctx.fillText("— " + reflection.verseRef, CX, y);
@@ -892,7 +887,7 @@
 
                     // ── reflection paragraphs ─────────────────────────────────
                     paras.forEach(para => {
-                        y = drawWrapped(para, bodyFont, bodyTextColor, CX, y, MAXW, BLH);
+                        y = drawWrapped(para, bodyFont, "#1a0a0a", CX, y, MAXW, BLH);
                         y += 4;
                     });
 
@@ -908,7 +903,7 @@
                     link.href = canvas.toDataURL("image/jpeg", 0.92);
                     link.click();
                 };
-                img.src = reflection.reflectionBg || PANTOCRATOR_BG;
+                img.src = PANTOCRATOR_BG;
             };
 
             return (
@@ -1076,32 +1071,20 @@
                             </div>
                         )}
 
-                        {/* YouTube video */}
+                        {/* Video YouTube incrustado */}
                         {reflection.youtubeUrl && getYouTubeId(reflection.youtubeUrl) && (
-                            <div style={{ marginTop: 18 }}>
+                            <div style={{ marginTop: 8 }}>
                                 <p className="cinzel" style={{ fontSize: "0.6rem", color: "var(--gold)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10, opacity: 0.7 }}>
                                     🎬 Video
                                 </p>
-                                <div style={{ 
-                                    borderRadius: 12, 
-                                    overflow: "hidden", 
-                                    border: "1px solid rgba(201,168,76,0.2)",
-                                    background: "#000",
-                                    position: "relative",
-                                    paddingTop: "56.25%"  /* 16:9 */
-                                }}>
+                                <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(201,168,76,0.2)", background: "#000", position: "relative", paddingTop: "56.25%" }}>
                                     <iframe
                                         src={`https://www.youtube.com/embed/${getYouTubeId(reflection.youtubeUrl)}`}
                                         title={reflection.title}
                                         frameBorder="0"
                                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                         allowFullScreen
-                                        style={{
-                                            position: "absolute",
-                                            top: 0, left: 0,
-                                            width: "100%", height: "100%",
-                                            border: "none"
-                                        }}
+                                        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
                                     />
                                 </div>
                             </div>
@@ -1122,9 +1105,7 @@
                 date: defaultDate || today(), 
                 lang: "es",
                 imageUrl: "",
-                youtubeUrl: "",
-                reflectionBg: "",
-                textColor: "#1a0a0a"
+                youtubeUrl: ""
             });
             
             const s = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -1197,13 +1178,19 @@
                     </div>
                     
                     <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
-                        {/* Simplified inputs with placeholders only */}
-                        <input 
-                            className="admin-input" 
-                            placeholder="Título de la reflexión" 
-                            value={f.title || ""} 
-                            onChange={e => s("title", e.target.value)} 
-                        />
+                        {/* TÍTULO - campo principal visible */}
+                        <div>
+                            <p className="cinzel" style={{ fontSize: "0.68rem", color: "var(--gold)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6, opacity: 0.85 }}>
+                                ✝ Título (aparece en el encabezado de la reflexión)
+                            </p>
+                            <input 
+                                className="admin-input" 
+                                placeholder="Ej: La Luz del Mundo, El Pan de Vida..." 
+                                value={f.title || ""} 
+                                onChange={e => s("title", e.target.value)} 
+                                style={{ fontSize: "1rem", fontWeight: 600 }}
+                            />
+                        </div>
                         
                         <textarea 
                             className="admin-input" 
@@ -1239,10 +1226,10 @@
                             style={{ resize: "vertical" }}
                         />
 
-                        {/* YouTube link */}
+                        {/* Campo YouTube */}
                         <div>
-                            <p className="cinzel" style={{ fontSize: "0.68rem", color: "var(--gold)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8, opacity: 0.75 }}>
-                                🎬 Video (enlace YouTube)
+                            <p className="cinzel" style={{ fontSize: "0.68rem", color: "var(--gold)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6, opacity: 0.85 }}>
+                                🎬 Video (enlace YouTube — opcional)
                             </p>
                             <input
                                 className="admin-input"
@@ -1251,83 +1238,15 @@
                                 onChange={e => s("youtubeUrl", e.target.value)}
                             />
                             {f.youtubeUrl && getYouTubeId(f.youtubeUrl) && (
-                                <p className="cinzel" style={{ fontSize: "0.62rem", color: "#81c784", marginTop: 5, letterSpacing: "0.08em" }}>
-                                    ✓ ID detectado: {getYouTubeId(f.youtubeUrl)}
+                                <p className="cinzel" style={{ fontSize: "0.62rem", color: "#81c784", marginTop: 4, letterSpacing: "0.06em" }}>
+                                    ✓ Video reconocido correctamente
                                 </p>
                             )}
                             {f.youtubeUrl && !getYouTubeId(f.youtubeUrl) && (
-                                <p className="cinzel" style={{ fontSize: "0.62rem", color: "#f08080", marginTop: 5, letterSpacing: "0.08em" }}>
-                                    ⚠ URL no reconocida. Pegá el link directo de YouTube.
+                                <p className="cinzel" style={{ fontSize: "0.62rem", color: "#f08080", marginTop: 4, letterSpacing: "0.06em" }}>
+                                    ⚠ URL no reconocida — pegá el link directo de YouTube
                                 </p>
                             )}
-                        </div>
-
-                        {/* Social image background selector */}
-                        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.18)", borderRadius: 10, padding: "14px 16px" }}>
-                            <p className="cinzel" style={{ fontSize: "0.68rem", color: "var(--gold)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12, opacity: 0.75 }}>
-                                🖼 Fondo para imagen social
-                            </p>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
-                                {PRESET_BG.map(img => (
-                                    <div
-                                        key={img.id}
-                                        onClick={() => s("reflectionBg", img.url)}
-                                        style={{
-                                            width: 58, height: 40, borderRadius: 7, cursor: "pointer",
-                                            border: `2px solid ${(f.reflectionBg || "") === img.url ? "var(--gold)" : "rgba(201,168,76,0.2)"}`,
-                                            backgroundImage: img.url ? `url(${img.url})` : "none",
-                                            background: img.url ? undefined : "rgba(255,255,255,0.06)",
-                                            backgroundSize: "cover", backgroundPosition: "center",
-                                            boxShadow: (f.reflectionBg || "") === img.url ? "0 0 10px rgba(201,168,76,0.5)" : "none",
-                                            transition: "all 0.2s",
-                                            display: "flex", alignItems: "center", justifyContent: "center",
-                                            overflow: "hidden",
-                                        }}
-                                        title={img.label}
-                                    >
-                                        {!img.url && <span style={{ fontFamily: "'Cinzel',serif", fontSize: "0.55rem", color: "rgba(201,168,76,0.5)" }}>Predeter.</span>}
-                                    </div>
-                                ))}
-                            </div>
-                            <p className="cinzel" style={{ fontSize: "0.6rem", color: "rgba(201,168,76,0.4)", letterSpacing: "0.06em" }}>
-                                Sin selección = imagen Pantocrátor predeterminada
-                            </p>
-                        </div>
-
-                        {/* Liturgical text color for social image */}
-                        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(201,168,76,0.18)", borderRadius: 10, padding: "14px 16px" }}>
-                            <p className="cinzel" style={{ fontSize: "0.68rem", color: "var(--gold)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12, opacity: 0.75 }}>
-                                🎨 Color litúrgico (texto en imagen)
-                            </p>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                {LITURGICAL_COLORS.map(lc => (
-                                    <button
-                                        key={lc.id}
-                                        onClick={() => s("textColor", lc.color)}
-                                        title={lc.label}
-                                        style={{
-                                            padding: "7px 12px",
-                                            borderRadius: 20,
-                                            cursor: "pointer",
-                                            border: `2px solid ${(f.textColor || "#1a0a0a") === lc.color ? "var(--gold)" : "rgba(201,168,76,0.2)"}`,
-                                            background: `${lc.bg}dd`,
-                                            color: lc.color,
-                                            fontFamily: "'Cinzel',serif",
-                                            fontSize: "0.62rem",
-                                            letterSpacing: "0.06em",
-                                            transition: "all 0.2s",
-                                            boxShadow: (f.textColor || "#1a0a0a") === lc.color ? "0 0 8px rgba(201,168,76,0.4)" : "none",
-                                        }}
-                                    >
-                                        {lc.icon} {lc.label}
-                                    </button>
-                                ))}
-                            </div>
-                            <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "#fff", border: "1px solid rgba(201,168,76,0.3)" }}>
-                                <p style={{ fontFamily: "'Crimson Pro',serif", fontSize: "0.9rem", color: f.textColor || "#1a0a0a", fontStyle: "italic" }}>
-                                    Vista previa: "En el principio era el Verbo..."
-                                </p>
-                            </div>
                         </div>
 
                         {/* Image upload */}
@@ -1441,6 +1360,16 @@
         const BgPanel = ({ current, onSelect, onClose, t }) => {
             const [url, setUrl] = useState("");
             
+            // Upload image from computer - convert to data URL
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (!file.type.startsWith('image/')) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => { onSelect(ev.target.result); };
+                reader.readAsDataURL(file);
+            };
+            
             return (
                 <div style={{ width: "100%", maxWidth: 420, borderRadius: 14 }} className="glass">
                     <div style={{ 
@@ -1460,6 +1389,22 @@
                     </div>
                     
                     <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+                        {/* Restore Pantocrator button */}
+                        <button
+                            onClick={() => onSelect(PANTOCRATOR_BG)}
+                            style={{
+                                background: "rgba(201,168,76,0.15)",
+                                border: "2px solid rgba(201,168,76,0.5)",
+                                borderRadius: 8, padding: "9px 14px", cursor: "pointer",
+                                color: "var(--gold)", fontFamily: "'Cinzel',serif",
+                                fontSize: "0.72rem", letterSpacing: "0.1em",
+                                textTransform: "uppercase",
+                            }}
+                        >
+                            ✝ Restaurar imagen Pantocrátor (predeterminada)
+                        </button>
+
+                        {/* Preset thumbnails */}
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
                             {PRESET_BG.map(img => (
                                 <div 
@@ -1480,8 +1425,28 @@
                                 </div>
                             ))}
                         </div>
-                        
+
+                        {/* Upload from computer */}
                         <div>
+                            <p className="cinzel" style={{ fontSize: "0.62rem", color: "var(--gold)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 7, opacity: 0.75 }}>
+                                📂 Subir imagen desde mi computadora
+                            </p>
+                            <label style={{
+                                display: "inline-block", padding: "9px 16px", borderRadius: 7, cursor: "pointer",
+                                border: "1px solid rgba(201,168,76,0.35)", background: "rgba(255,255,255,0.06)",
+                                color: "rgba(201,168,76,0.8)", fontFamily: "'Cinzel',serif",
+                                fontSize: "0.68rem", letterSpacing: "0.06em",
+                            }}>
+                                🖼 Elegir imagen (JPG, PNG)
+                                <input type="file" accept="image/*" onChange={handleFileUpload} style={{ display: "none" }} />
+                            </label>
+                        </div>
+                        
+                        {/* URL input */}
+                        <div>
+                            <p className="cinzel" style={{ fontSize: "0.62rem", color: "var(--gold)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 7, opacity: 0.75 }}>
+                                🔗 O pegar enlace de internet
+                            </p>
                             <div style={{ display: "flex", gap: 7 }}>
                                 <input 
                                     className="admin-input" 
@@ -1619,6 +1584,7 @@
             });
             const [isAdmin, setIsAdmin] = useState(false);
             const [dataLoading, setDataLoading] = useState(true);
+            const [visitorCount, setVisitorCount] = useState(null);
 
             const [showPwd, setShowPwd] = useState(false);
             const [showForm, setShowForm] = useState(false);
@@ -1645,6 +1611,8 @@
                         hideLoader();
                     });
                     window._fb.listenBg(url => { if (url) setBgUrl(url); });
+                    window._fb.listenVisitors(n => setVisitorCount(n));
+                    window._fb.incrementVisitors();
                 } else {
                     // Sin Firebase: usar caché local o datos de muestra
                     const saved = localStorage.getItem('reflections');
@@ -1890,6 +1858,47 @@
                                     </div>
                                 )}
 
+                                {/* Multi-language titles for the day — shows when there are reflections in other languages */}
+                                {(() => {
+                                    const allDayRefs = reflections.filter(r => r.date === selectedDate);
+                                    const otherLangRefs = allDayRefs.filter(r => r.lang !== lang && r.title);
+                                    if (allDayRefs.length <= 1 && dayRefs.length === 0) return null;
+                                    if (dayRefs.length <= 1 && otherLangRefs.length === 0) return null;
+                                    return (
+                                        <div className="glass fu" style={{ borderRadius: 12, padding: "12px 18px", marginBottom: 16, border: "1px solid rgba(201,168,76,0.15)" }}>
+                                            <p className="cinzel" style={{ fontSize: "0.6rem", color: "var(--gold)", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 10, opacity: 0.75 }}>
+                                                ✝ Reflexiones del día — {fmt(selectedDate)}
+                                            </p>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                                                {allDayRefs.map(r => {
+                                                    const flagInfo = LANGS.find(l => l.code === r.lang);
+                                                    return (
+                                                        <div
+                                                            key={r.id}
+                                                            onClick={() => setLang(r.lang)}
+                                                            style={{
+                                                                display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                                                                padding: "5px 8px", borderRadius: 6,
+                                                                background: r.lang === lang ? "rgba(201,168,76,0.12)" : "transparent",
+                                                                border: r.lang === lang ? "1px solid rgba(201,168,76,0.3)" : "1px solid transparent",
+                                                                transition: "all 0.2s",
+                                                            }}
+                                                        >
+                                                            <span style={{ fontSize: "0.9rem" }}>{flagInfo?.flag || "✝"}</span>
+                                                            <span className="cinzel" style={{ fontSize: "0.6rem", color: "rgba(201,168,76,0.6)", letterSpacing: "0.06em", minWidth: 52 }}>
+                                                                {flagInfo?.native || r.lang.toUpperCase()}
+                                                            </span>
+                                                            <span className="crimson" style={{ fontSize: "0.88rem", color: "rgba(245,230,187,0.85)", lineHeight: 1.3 }}>
+                                                                {r.title || "(sin título)"}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
                                 {dayRefs.length === 0 ? (
                                     <div className="glass fu" style={{ borderRadius: 14, padding: "40px 24px", textAlign: "center" }}>
                                         <div style={{ fontSize: "2rem", marginBottom: 10, opacity: 0.35 }}>✝</div>
@@ -1936,7 +1945,7 @@
                                 </div>
 
                                 {/* Lang selector */}
-                                <div className="glass fu2" style={{ borderRadius: 12, padding: "16px 14px", marginTop: 14 }}>
+                                <div className="glass fu2" style={{ borderRadius: 12, padding: "14px 16px", marginTop: 14 }}>
                                     <p className="cinzel" style={{ fontSize: "0.72rem", color: "var(--gold)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12, opacity: 0.85 }}>
                                         🌐 Idioma / Language
                                     </p>
@@ -1958,6 +1967,56 @@
                                         })}
                                     </div>
                                 </div>
+
+                                {/* PANORÁMICAS DEL AÑO */}
+                                {(() => {
+                                    const currentYear = new Date().getFullYear();
+                                    const panoramicas = reflections.filter(r => {
+                                        if (!r.youtubeUrl && !r.imageUrl) return false;
+                                        const rYear = r.date ? r.date.substring(0, 4) : "";
+                                        return rYear === String(currentYear) && r.title;
+                                    });
+                                    // Also check for manually marked panorámicas (type === "panoramica")
+                                    const allPanoramicas = reflections.filter(r => {
+                                        const rYear = r.date ? r.date.substring(0, 4) : "";
+                                        return rYear === String(currentYear) && r.title && r.youtubeUrl;
+                                    });
+                                    if (allPanoramicas.length === 0) return null;
+                                    return (
+                                        <div className="glass fu2" style={{ borderRadius: 12, padding: "14px 16px", marginTop: 14 }}>
+                                            <p className="cinzel" style={{ fontSize: "0.72rem", color: "var(--gold)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 12, opacity: 0.85 }}>
+                                                🎬 Panorámicas {currentYear}
+                                            </p>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                                {allPanoramicas.slice().reverse().map((r, i) => (
+                                                    <button
+                                                        key={r.id || i}
+                                                        onClick={() => { setSelectedDate(r.date); setLang(r.lang || lang); }}
+                                                        style={{
+                                                            background: selectedDate === r.date ? "rgba(201,168,76,0.15)" : "rgba(255,255,255,0.04)",
+                                                            border: `1px solid ${selectedDate === r.date ? "var(--gold)" : "rgba(201,168,76,0.2)"}`,
+                                                            borderRadius: 8,
+                                                            padding: "8px 10px",
+                                                            cursor: "pointer",
+                                                            textAlign: "left",
+                                                            transition: "all 0.2s",
+                                                        }}
+                                                    >
+                                                        <p className="cinzel" style={{ fontSize: "0.6rem", color: "var(--gold)", letterSpacing: "0.1em", opacity: 0.7, marginBottom: 2 }}>
+                                                            🎬 {r.date}
+                                                        </p>
+                                                        <p className="crimson" style={{ fontSize: "0.88rem", color: "rgba(245,230,187,0.9)", lineHeight: 1.3 }}>
+                                                            {r.title}
+                                                        </p>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="cinzel" style={{ fontSize: "0.55rem", color: "rgba(201,168,76,0.4)", marginTop: 10, letterSpacing: "0.06em" }}>
+                                                Ciclo {currentYear} — Epifanía {currentYear + 1}
+                                            </p>
+                                        </div>
+                                    );
+                                })()}
                             </aside>
                         </main>
                         )} {/* end dataLoading conditional */}
@@ -1973,6 +2032,11 @@
                             <p className="crimson" style={{ fontSize: "0.85rem", color: "rgba(201,168,76,0.38)", fontStyle: "italic" }}>
                                 "De Corazón a Corazón con Cristo" · Luz del Verbo · "Yo soy el camino, la verdad y la vida" · Jn 14,6
                             </p>
+                            {visitorCount !== null && (
+                                <p className="cinzel" style={{ fontSize: "0.6rem", color: "rgba(201,168,76,0.3)", letterSpacing: "0.1em", marginTop: 8 }}>
+                                    ✦ {visitorCount.toLocaleString()} visitas — Dios los bendiga a todos ✦
+                                </p>
+                            )}
                         </footer>
                     </div>
                 </>
