@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- Página principal -->
+  <url>
+    <loc>https://nesflopa.github.io/deCorazonAcorazonConCristo/</loc>
+    <lastmod>2026-06-01</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <!-- Versiones en todos los idiomas -->
+    <xhtml:link rel="alternate" hreflang="es" href="https://nesflopa.github.io/deCorazonAcorazonConCristo/?idioma=es"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://nesflopa.github.io/deCorazonAcorazonConCristo/?idioma=it"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://nesflopa.github.io/deCorazonAcorazonConCristo/?idioma=fr"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://nesflopa.github.io/deCorazonAcorazonConCristo/?idioma=en"/>
+    <xhtml:link rel="alternate" hreflang="pt" href="https://nesflopa.github.io/deCorazonAcorazonConCristo/?idioma=pt"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://nesflopa.github.io/deCorazonAcorazonConCristo/?idioma=de"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://nesflopa.github.io/deCorazonAcorazonConCristo/"/>
+  </url>
+
+</urlset>
