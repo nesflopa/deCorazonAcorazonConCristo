@@ -499,6 +499,35 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
+        // ── Función segura para localStorage (Edge puede bloquearlo) ─────────────
+        const safeStorage = {
+            get: (key, fallback = null) => { try { const v = localStorage.getItem(key); return v !== null ? v : fallback; } catch(e) { return fallback; } },
+            set: (key, val) => { try { localStorage.setItem(key, val); } catch(e) {} },
+            getJSON: (key, fallback = null) => { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch(e) { return fallback; } },
+            setJSON: (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
+        };
+
+        // ── ErrorBoundary: captura crashes de React y muestra mensaje amigable ────
+        class ErrorBoundary extends React.Component {
+            constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            componentDidCatch(error, info) { console.error("✝ Error capturado:", error, info); }
+            render() {
+                if (this.state.hasError) {
+                    return React.createElement('div', { style: { display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'linear-gradient(160deg,#0D1B3E,#162347)', padding:24 } },
+                        React.createElement('div', { style: { textAlign:'center', maxWidth:360 } },
+                            React.createElement('div', { style: { fontSize:'2.5rem', color:'#C9A84C', marginBottom:16 } }, '✝'),
+                            React.createElement('p', { style: { fontFamily:'Georgia,serif', color:'#F5E6BB', fontSize:'1.1rem', marginBottom:12 } }, 'De Corazón a Corazón con Cristo'),
+                            React.createElement('p', { style: { fontFamily:'Georgia,serif', color:'rgba(201,168,76,0.7)', fontSize:'0.9rem', marginBottom:20 } }, 'La página encontró un problema al cargar. Por favor recargá la página.'),
+                            React.createElement('button', { onClick:()=>window.location.reload(), style:{ background:'rgba(201,168,76,0.2)', border:'1px solid rgba(201,168,76,0.5)', color:'#C9A84C', padding:'10px 24px', borderRadius:8, cursor:'pointer', fontFamily:'Georgia,serif', fontSize:'0.95rem' } }, '🔄 Recargar página'),
+                            this.state.error && React.createElement('p', { style:{ marginTop:16, fontFamily:'monospace', fontSize:'0.7rem', color:'rgba(255,100,100,0.6)', wordBreak:'break-all' } }, String(this.state.error))
+                        )
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
         // ═══════════════════════════════════════════════════════════════════════════
         // CONSTANTS
         // ═══════════════════════════════════════════════════════════════════════════
@@ -1699,14 +1728,8 @@
             const urlLang = urlParams.get('idioma');
             const [lang, setLang] = useState(urlLang || "es");
             const [selectedDate, setSelectedDate] = useState(urlDate || today());
-            const [reflections, setReflections] = useState(() => {
-                const saved = localStorage.getItem('reflections');
-                return saved ? JSON.parse(saved) : [];
-            });
-            const [bgUrl, setBgUrl] = useState(() => {
-                const saved = localStorage.getItem('bgUrl');
-                return saved || PRESET_BG[1].url;
-            });
+            const [reflections, setReflections] = useState(() => safeStorage.getJSON('reflections', []));
+            const [bgUrl, setBgUrl] = useState(() => safeStorage.get('bgUrl', PRESET_BG[1].url));
             const [isAdmin, setIsAdmin] = useState(false);
             const [dataLoading, setDataLoading] = useState(true);
             const [visitorCount, setVisitorCount] = useState(null);
@@ -1736,7 +1759,7 @@
                     window._fb.listenReflections(data => {
                         const list = data.length > 0 ? data : SAMPLE;
                         setReflections(list);
-                        try { localStorage.setItem('reflections', JSON.stringify(list)); } catch(e) {}
+                        safeStorage.setJSON('reflections', list)
                         setDataLoading(false);
                         hideLoader();
                     });
@@ -1747,8 +1770,8 @@
                     window._fb.listenTextColor(c => setImgTextColor(c));
                 } else {
                     // Sin Firebase: usar caché local o datos de muestra
-                    const saved = localStorage.getItem('reflections');
-                    if (!saved || JSON.parse(saved).length === 0) setReflections(SAMPLE);
+                    const saved = safeStorage.getJSON('reflections', []);
+                    if (!saved || saved.length === 0) setReflections(SAMPLE);
                     setDataLoading(false);
                     hideLoader();
                 }
@@ -1756,7 +1779,7 @@
 
             // Guardar fondo en localStorage (respaldo local siempre)
             useEffect(() => {
-                localStorage.setItem('bgUrl', bgUrl);
+                safeStorage.set('bgUrl', bgUrl);
             }, [bgUrl]);
 
             const showToast = (m) => {
@@ -1797,7 +1820,7 @@
                         ? reflections.map(r => r.id === editTarget.id ? newRef : r)
                         : [...reflections, newRef];
                     setReflections(updated);
-                    try { localStorage.setItem('reflections', JSON.stringify(updated)); } catch(e) {}
+                    safeStorage.setJSON('reflections', updated)
                 }
                 setShowForm(false);
                 setEditTarget(null);
@@ -1817,7 +1840,7 @@
                 } else {
                     const updated = reflections.filter(r => r.id !== id);
                     setReflections(updated);
-                    try { localStorage.setItem('reflections', JSON.stringify(updated)); } catch(e) {}
+                    safeStorage.setJSON('reflections', updated)
                 }
             };
 
@@ -2273,14 +2296,33 @@
 
         // Render the app
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>    <script>
-        // Show error message if Babel/React fails to load (common on slow mobile connections)
+        root.render(
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        );
+    </script>
+    <script>
+        // Detectar si React/Babel cargaron correctamente
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                var root = document.getElementById('root');
+                var loading = document.getElementById('app-loading');
+                // Si después de 8 segundos el root sigue vacío, algo falló
+                if (root && !root.hasChildNodes() && loading && loading.style.display !== 'none') {
+                    var isEdge = navigator.userAgent.indexOf('Edg/') > -1;
+                    loading.innerHTML = '<div style="text-align:center;padding:24px;max-width:360px">'
+                        + '<div style="font-size:2.5rem;color:#C9A84C;margin-bottom:14px">✝</div>'
+                        + '<p style="font-family:Georgia,serif;color:#F5E6BB;font-size:1.1rem;margin-bottom:10px">De Corazón a Corazón con Cristo</p>'
+                        + (isEdge ? '<p style="font-family:Georgia,serif;color:rgba(255,200,100,0.8);font-size:0.85rem;margin-bottom:14px">⚠️ Microsoft Edge bloqueó algunos scripts. Por favor:<br><br>1. Hacé clic en los tres puntos ··· (arriba derecha)<br>2. Configuración → Privacidad y seguridad<br>3. Modo de seguridad mejorado → Desactivar para este sitio</p>'
+                          : '<p style="font-family:Georgia,serif;color:rgba(201,168,76,0.6);font-size:0.85rem">Por favor recargá la página o usá Google Chrome.</p>')
+                        + '<button onclick="window.location.reload()" style="background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.5);color:#C9A84C;padding:10px 24px;border-radius:8px;cursor:pointer;font-family:Georgia,serif;font-size:0.95rem">🔄 Recargar</button>'
+                        + '</div>';
+                }
+            }, 8000);
+        });
         window.addEventListener('error', function(e) {
-            var loading = document.getElementById('app-loading');
-            if (loading) {
-                loading.innerHTML = '<div style="text-align:center;padding:24px;max-width:320px"><div style="font-size:2rem;color:#C9A84C;margin-bottom:12px">✝</div><p style="font-family:Georgia,serif;color:#F5E6BB;font-size:1rem;margin-bottom:10px">De Corazón a Corazón con Cristo</p><p style="font-family:Georgia,serif;color:rgba(201,168,76,0.6);font-size:0.85rem">Por favor recarga la página o intenta con una conexión más estable.</p></div>';
-            }
+            console.error('Script error:', e.message, e.filename, e.lineno);
         });
     </script>
 </body>
